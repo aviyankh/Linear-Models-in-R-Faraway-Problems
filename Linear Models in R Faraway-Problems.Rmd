@@ -1,0 +1,359 @@
+---
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r warning=FALSE, message=FALSE}
+library(faraway)
+library(ggplot2)
+library(ellipse)
+```
+
+
+Faraway 3.7
+
+(a). Fit a regression model with Distance as the response and the right and left leg strengths and flexibilities as predictors. Which predictors are significant at the 5% level?
+
+```{r}
+punt_fit <- lm(Distance ~ RStr + LStr + RFlex + LFlex, data = punting)
+summary(punt_fit)
+
+```
+
+None of the predictors are significant at 5% level.
+
+
+(b). Use an F-test to determine whether collectively these four predictors have a
+relationship to the response.
+
+```{r}
+
+punt_red <- lm(Distance ~ 1, data = punting)
+anova(punt_red,punt_fit)
+```
+
+As the p value of 0.019 is less than the significance level, We reject the null hypothesis that collectively the four predictors  have no relationship to response. 
+
+(c). Relative to the model in (a), test whether the right and left leg strengths have
+the same effect.
+
+```{r}
+const <- c(0,1,-1,0,0)
+b_hat <- punt_fit$coefficients
+sigmahat <- summary(punt_fit)$sigma^2
+X <- model.matrix(punt_fit)
+
+tstat <- (t(const)%*%b_hat - 0)/(sqrt(sigmahat*t(const)%*%solve(t(X)%*%X)%*%const))
+tstat
+pval <- 2*(1-pt(abs(tstat), df = nrow(punting)-5))
+pval
+```
+
+(d). Construct a 95% confidence region for ($\beta$RStr,$\beta$LStr). Explain how the test in (c) relates to this region.
+
+```{r}
+
+plot(ellipse(punt_fit, c(2,3)), type="l" , ylim = c(-3,3), xlim = c(-2,3))
+points(coef(punt_fit)[2], coef(punt_fit)[3], pch = 19)
+
+
+abline(v=confint(punt_fit)[2,], lty = 2)
+abline(h=confint(punt_fit)[3,], lty = 2)
+
+```
+
+
+-> The confidence ellipse for $\beta Rstr$ and $\beta LStr$ has zero in it which provides further assurance to the hypothesis test we did in (c) where we failed to reject the null that the right and left leg strengths have the same effect.
+
+
+(e) Fit a model to test the hypothesis that it is total leg strength defined by adding
+the right and left leg strengths that is sufficient to predict the response in comparison to using individual left and right leg strengths.
+
+```{r}
+combmod <- lm(Distance ~ RStr + LStr, data = punting)
+newmod <- lm(Distance ~ I(RStr + LStr), data = punting)
+anova(newmod, combmod)
+
+```
+
+-> As our p-value of 0.5978 is higher than the significance level 0.05, we fail to reject the null that the total leg strength defined by adding right and left leg strengths is sufficient to predict the response. 
+
+
+(f) Relative to the model in (a), test whether the right and left leg flexibilities have
+the same effect.
+
+
+```{r}
+
+c1 <- c(0,0,0,1,-1)
+beta_flex <- punt_fit$coefficients
+sigma1 <- summary(punt_fit)$sigma^2
+X1 <- model.matrix(punt_fit)
+
+t_stt <- (t(c1) %*% beta_flex - 0)/(sqrt(sigma1*t(c1) %*% solve(t(X1)%*%X1) %*% c1))
+flexp <- 2*(1-pt(abs(t_stt), df = nrow(punting) - 5))
+t_stt
+flexp
+
+```
+
+-> As our p value of 0.201 is greater than the significance level 0.05, we fail to reject the null hypothesis that the right and left flexibility have the same effect.
+
+
+(g) Test for left–right symmetry by performing the tests in (c) and (f) simultaneously.
+
+```{r}
+
+sumu_fit <- lm(Distance ~ I(RStr + LStr) + I(RFlex + LFlex) , data = punting)
+anova(sumu_fit, punt_fit)
+```
+
+-> We fail to reject the null hypothesis that there is left-right symmetry.
+
+(h). Fit a model with Hang as the response and the same four predictors. Can we
+make a test to compare this model to that used in (a)? Explain.
+
+```{r}
+hang_fit <- lm(Hang ~ RStr + LStr + RFlex + LFlex, data = punting)
+summary(hang_fit)
+
+```
+
+-> We cannot test the two models since they are separate and not nested.
+
+
+\newpage
+
+Faraway 6.3: 
+For the prostate data, fit a model with lpsa as the response and the other variables as predictors.
+
+```{r}
+pro_fit <- lm(lpsa ~ . , data = prostate)
+```
+(a) Check the constant variance assumption for the errors.
+
+```{r}
+plot(pro_fit, which = 1)
+```
+
+-> From the residual plot we can see that the residuals seem to distributed roughly evenly across the fitted values. 
+
+
+(b) Check the normality assumption.
+
+
+```{r}
+plot(pro_fit, which=2)
+```
+
+-> In the QQ-plot we can see that the standardized residuals are somewhat aligned with the theoretical quantiles and we can assume a roughly normal distribution.
+
+
+(c) Check for large leverage points.
+```{r}
+hatval <- hatvalues(pro_fit)
+fit_frame <- data.frame(hatval)
+fit_frame$index <- 1:nrow(fit_frame)
+fit_frame$fitted <- pro_fit$fitted.values
+fit_frame$resid <- pro_fit$residuals
+fit_frame$stdresid <- rstandard(pro_fit)
+
+ggplot(fit_frame, aes(y= hatval, x = 1:nrow(fit_frame), label = index)) + geom_point() + geom_hline(yintercept = 0.1855, color = "red")  + labs(y = "Leverage", x = "Obs number") + 
+  geom_text(aes(label=ifelse(hatval>0.1855,as.character(index),'')),hjust=0,vjust=0)
+```
+
+-> We have obtained a rough threshold of 0.18 as the cut off point and points above the threshold have been considered as points with high leverage as labeled in the plot.
+
+(d). Check for outliers.
+```{r}
+ggplot(fit_frame, aes(x=fitted, y=stdresid), label= index) + geom_point() +geom_text(aes(label=ifelse(abs(stdresid)>2,as.character(index),'')),hjust=0,vjust=0) + theme_classic()
+
+```
+
+-> Calculation the standard residual, points having absolute value above 2 have been labelled and considered as residuals. 
+
+(e). Check for influential points.
+
+
+```{r}
+
+plot(pro_fit, which = 4)
+```
+
+->In the cook's distance plot, we can see that points 32,47 and 69 have high values. These values can be considered as influential. 
+
+\newpage
+
+Faraway 7.5: 
+
+For the prostate data, fit a model with lpsa as the response and the other variables as predictors.
+
+(a). Compute and comment on the condition numbers.
+
+
+```{r}
+
+pro_des <- model.matrix(pro_fit)
+pram <- dim(pro_des)[2]
+pro_eg <- eigen(t(pro_des) %*% (pro_des))$values
+
+(kk_goldie <- sqrt(pro_eg[1]/pro_eg))
+```
+
+-> From the computed condition numbers, we can see very high values, much above our threshold of 30. These high values indicate tht there is multicollinearlity between the predictors.
+
+
+(b). Compute and comment on the correlations between the predictors.
+
+```{r}
+
+model.matrix(pro_fit)[1,]
+cormat <- cor(prostate[,1:8])
+cormat
+```
+
+-> In the correlation matrix, we see high positive correlation of 0.75 between pgg45 and gleason. Similarly, there is some positive correlation between lcp/pgg45 and lcp/gleason with correlation values 0.631 and 0.514 respectively.  
+
+(c). Compute the variance inflation factors.
+
+```{r}
+
+vif(pro_fit)
+
+```
+
+\newpage
+
+Faraway 7.6: 
+Using the cheddar data, fit a linear model with taste as the response and the other three variables as predictors.
+
+```{r}
+
+fit_ched <- lm(taste ~. , data = cheddar)
+
+```
+
+(a) Is the predictor Lactic statistically significant in this model?
+
+-> Yes, with a p-value of 0.03108, the predictor Lactic is statistically significant.
+
+(b) Give the R command to extract the p-value for the test of $\beta_{lactic}$ = 0. Hint:
+look at summary()$coef.
+
+```{r}
+summary(fit_ched)$coef[4,4]
+```
+(c). Add normally distributed errors to Lactic with mean zero and standard deviation 0.01 and refit the model. Now what is the p-value for the previous test?
+
+```{r}
+
+noisy <- rnorm(nrow(cheddar), 0, 0.01)
+cheddar$ELactic <- cheddar$Lactic + noisy
+fit_ched1 <- lm(taste ~ Acetic + H2S + ELactic , data = cheddar)
+summary(fit_ched1)$coeff[4,4]
+```
+
+
+(d) Repeat this same calculation of adding errors to Lactic 1000 times within for loop. Save the p-values into a vector. Report on the average p-value. Does this much measurement error make a qualitative difference to the conclusions?
+
+```{r}
+
+pvec <- length(1000)
+for (i in 1:1000){
+  
+noisy1 <- rnorm(nrow(cheddar), 0, 0.01)
+cheddar$ELactic <- cheddar$Lactic + noisy1
+ched_loop <- lm(taste ~ Acetic + H2S + ELactic , data = cheddar)
+pvec[i] <- summary(ched_loop)$coeff[4,4]
+
+}
+
+mean(pvec)
+
+```
+
+-> No, our p value is still around the 0.03 mark and is still significant. The standard deviation of 0.01 will have some biasness but not enough to significantly affect our model.
+
+(e) Repeat the previous question but with a standard deviation of 0.1. Does this much measurement error make an important difference?
+
+```{r}
+
+pvec1 <- length(1000)
+for (i in 1:1000){
+  
+noisy2 <- rnorm(nrow(cheddar), 0, 0.1)
+cheddar$NLactic <- cheddar$Lactic + noisy2
+ched_loop1 <- lm(taste ~ Acetic + H2S + NLactic , data = cheddar)
+pvec1[i] <- summary(ched_loop1)$coeff[4,4]
+
+}
+
+mean(pvec1)
+
+```
+
+-> Yes, the measurement error of 0.1 has had effect on our model with the pvalue shifting from 0.03 to 0.06 which is above our 5% significant level. This indicates a high degree of biasness in our coefficient.
+
+\newpage
+
+Faraway 7.8: 
+
+```{r}
+fat_mod <- lm(brozek ~ age + weight + height + neck + chest + abdom + hip + thigh + knee + ankle + biceps + forearm + wrist, data=fat)
+summary(fat_mod)
+
+```
+
+(a) Compute the condition numbers and variance inflation factors. Comment on the degree of collinearity observed in the data.
+
+```{r}
+
+fat_mat <- model.matrix(fat_mod)
+maxi <- dim(fat_mat)[2]
+fat_eigen <- eigen(t(fat_mat)%*% fat_mat)$val
+
+(condt <- sqrt(fat_eigen[1]/fat_eigen))
+
+
+vif(fat_mod)
+
+```
+
+-> We have condition numbers that are very high and such numbers do imply a high degree  of multicollinearity between the explanatory variables. Similiary, from the VIF numbers  we observe that weight, abdom and hip have a VIF number greater than 10. Therefore, we can consider these variables to have high milticollinearity. Chest has a VIF of almost 10, which can be implied as having moderate collinearity.
+
+
+(b) Cases 39 and 42 are unusual. Refit the model without these two cases and recompute the collinearity diagnostics. Comment on the differences observed from the full data fit.
+
+```{r}
+new_fat <- fat[-c(39, 42),]
+newfat_fit <- lm(brozek ~ age + weight + height + neck + chest + abdom + hip + thigh + knee + ankle + biceps + forearm + wrist, data=new_fat)
+summary(newfat_fit)
+fat_mat1 <- model.matrix(newfat_fit)
+maxi1 <- dim(fat_mat1)[2]
+fat_eigen1 <- eigen(t(fat_mat1)%*% fat_mat1)$val
+(condt1 <- sqrt(fat_eigen1[1]/fat_eigen1))
+
+
+vif(newfat_fit)
+```
+-> After removing the two cases, we have observed fewer significant predictors than the original model. Moreover, there is an increase in VIF for weight, chest and abdom, while there is a slight decrease in hip vif.   
+
+(c) Fit a model with brozek as the response and just age, weight and height as predictors. Compute the collinearity diagnostics and compare to the full data fit.
+
+```{r}
+
+redfat_fit <- lm(brozek ~ age + weight + height, data=fat)
+
+
+fat_mat2 <- model.matrix(redfat_fit)
+maxi2 <- dim(fat_mat2)[2]
+fat_eigen2 <- eigen(t(fat_mat2)%*% fat_mat2)$val
+(condt2 <- sqrt(fat_eigen2[1]/fat_eigen2))
+
+
+vif(redfat_fit)
+
+```
+-> From the condition numbers of this reduced model, we can observe that they are max/min ratio is above  30, which implies multicollinearity. However, VIF numbers are nearly to 1 and we can suggest that predictors are non linearly associated.  
